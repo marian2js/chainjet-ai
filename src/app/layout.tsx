@@ -7,6 +7,7 @@ import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit'
 import { WagmiConfig, configureChains, createConfig } from 'wagmi'
 import { mainnet, polygon, optimism, arbitrum } from 'wagmi/chains'
 import { publicProvider } from 'wagmi/providers/public'
+import ChainJetContextProvider from '@/components/providers/ChainJetProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,9 +33,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.className}>
-        <WagmiConfig config={wagmiConfig}>
-          <RainbowKitProvider chains={chains}>{children}</RainbowKitProvider>
-        </WagmiConfig>
+        <ChainJetContextProvider>
+          <WagmiConfig config={wagmiConfig}>
+            <RainbowKitProvider chains={chains}>{children}</RainbowKitProvider>
+          </WagmiConfig>
+        </ChainJetContextProvider>
       </body>
     </html>
   )
