@@ -31,16 +31,21 @@ export function resolveInputs(
   replacedInputs: Record<string, string>,
   previousOperationId: string | null = null,
 ) {
-  return operation.inputs.reduce((acc, input, index) => {
+  const resolvedInputs = operation.inputs.reduce((acc, input, index) => {
+    const inputValue =
+      replacedInputs[input.name] ??
+      inputs[index]
+        ?.trim()
+        .replace(/^"|"$/g, '')
+        .replace(/\{\{\s*\d+\.\s*(\w+)\s*\}\}/g, `{{${previousOperationId ?? ''}.$1}}`) ??
+      input.value
     return {
       ...acc,
-      [input.name]:
-        replacedInputs[input.name] ??
-        inputs[index]
-          ?.trim()
-          .replace(/^"|"$/g, '')
-          .replace(/\{\{\s*\d+\.\s*(\w+)\s*\}\}/g, `{{${previousOperationId ?? ''}.$1}}`) ??
-        input.value,
+      [input.name]: inputValue,
     }
   }, {})
+  if (operation.mapInputs) {
+    return operation.mapInputs(resolvedInputs)
+  }
+  return resolvedInputs
 }

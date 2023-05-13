@@ -7,6 +7,7 @@ export interface Operation {
   requiresCredentials?: boolean
   inputs: { name: string; type: string; value?: any }[]
   outputs: { name: string; type: string }[]
+  mapInputs?: (inputs: Record<string, any>) => Record<string, any>
 }
 
 export const OPERATIONS: Operation[] = [
@@ -100,6 +101,18 @@ export const OPERATIONS: Operation[] = [
       { name: 'rightValue', type: 'string' },
     ],
     outputs: [],
+    mapInputs: (inputs) => {
+      const { leftValue, comparator, rightValue } = inputs
+      return {
+        filters: [
+          {
+            leftValue,
+            comparator,
+            rightValue,
+          },
+        ],
+      }
+    },
   },
   {
     type: 'action',
