@@ -1,12 +1,12 @@
 import { Integration } from '@/types/integration'
 import { Button, Modal, Text } from '@nextui-org/react'
 import { useAccountCredentials, useIntegrationAccounts } from '../hooks/chainjet.hooks'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface Props {
   open: boolean
   integrations: Integration[]
-  onComplete: () => void
+  onComplete: (selectedAccounts: Record<string, string>) => void
   onCancel: () => void
 }
 
@@ -19,6 +19,17 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
     skip: !integrationAccounts?.length,
   })
   const [selectedAccounts, setSelectedAccounts] = useState<Record<string, string>>({})
+
+  // set default selected accounts
+  useEffect(() => {
+    if (accountCredentials) {
+      setSelectedAccounts(
+        Object.fromEntries(
+          integrations.map((integration) => [integration.key, accountCredentials[integration.key]?.[0]?.id ?? '']),
+        ),
+      )
+    }
+  }, [accountCredentials, integrations])
 
   const loading = integrationAccountsLoading || accountCredentialsLoading
 
@@ -38,8 +49,6 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
                     {accountCredentials[integration.key]?.length && (
                       <div className="">
                         <select
-                          name=""
-                          id=""
                           className="w-full h-8"
                           onChange={(e) =>
                             setSelectedAccounts({ ...selectedAccounts, [integration.key]: e.target.value })
@@ -86,7 +95,7 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
         <Button auto flat color="error" onPress={onCancel}>
           Cancel
         </Button>
-        <Button auto flat onPress={onComplete}>
+        <Button auto flat onPress={() => onComplete(selectedAccounts)}>
           Confirm
         </Button>
       </Modal.Footer>

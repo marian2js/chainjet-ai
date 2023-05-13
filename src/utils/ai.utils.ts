@@ -20,15 +20,16 @@ export function resolveInstruction(instruction: string): Instruction {
 /**
  * Finds all inputs with input interpolation (e.g. {{ input.address }})
  */
-export function getInputDependencies(inputs: string[]) {
-  return inputs.filter((input) => /\{\{\s*input\.\w+\s*\}\}/.test(input))
+export function getInputDependencies(operation: Operation, inputs: string[]) {
+  const interpolatedInputs = inputs.map((input) => /\{\{\s*input\.\w+\s*\}\}/.test(input))
+  return operation.inputs.filter((input, index) => interpolatedInputs[index]).map((input) => input.name)
 }
 
-export function resolveInputs(operation: Operation, inputs: string[]) {
+export function resolveInputs(operation: Operation, inputs: string[], replacedInputs: Record<string, string>) {
   return operation.inputs.reduce((acc, input, index) => {
     return {
       ...acc,
-      [input.name]: inputs[index]?.replace(/^"|"$/g, '') ?? input.value,
+      [input.name]: replacedInputs[input.name] ?? inputs[index]?.replace(/^"|"$/g, '') ?? input.value,
     }
   }, {})
 }

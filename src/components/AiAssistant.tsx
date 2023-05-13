@@ -1,24 +1,20 @@
 import { Button, Textarea } from '@nextui-org/react'
 import { useMemo, useState } from 'react'
-import { fetchIntegration, fetchIntegrationAction, fetchIntegrationTrigger } from './services/chainjet.service'
-import { getInputDependencies, resolveInstruction } from '@/utils/ai.utils'
-import { OPERATIONS, Operation } from '@/constants/operations'
+import {
+  createOneWorkflow,
+  createOneWorkflowAction,
+  createOneWorkflowTrigger,
+  fetchIntegration,
+  fetchIntegrationAction,
+  fetchIntegrationTrigger,
+} from './services/chainjet.service'
+import { getInputDependencies, resolveInputs, resolveInstruction } from '@/utils/ai.utils'
+import { OPERATIONS } from '@/constants/operations'
 import { useAccount } from 'wagmi'
-import { Instruction } from '@/types/instruction'
 import { Integration } from '@/types/integration'
-import { IntegrationOperation } from '@/types/integration-operation'
 import AuthenticationModal from './auth/AuthenticationModal'
-
-interface InstructionData {
-  instruction: Instruction
-  operation: Operation
-  integration: Integration
-  integrationOperation: IntegrationOperation
-  dependencies: {
-    auth?: boolean
-    inputs?: string[]
-  }
-}
+import InputsModal from './InputsModal'
+import { InstructionData } from '@/types/instruction-data'
 
 export default function AiAssistant() {
   const { address } = useAccount()
@@ -27,16 +23,27 @@ export default function AiAssistant() {
   const [workflowLoading, setWorkflowLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [unparsedInstructions, setUnparsedInstructions] = useState<string[] | null>(null)
-  const [dependenciesFullfilled, setDependenciesFullfilled] = useState(false)
-  const [instructionData, setInstructionData] = useState<InstructionData[] | null>(null)
+  const [instructionsData, setInstructionData] = useState<InstructionData[] | null>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [inputsModalOpen, setInputsModalOpen] = useState(false)
+  const [selectedAccounts, setSelectedAccounts] = useState<Record<string, string>>({})
+  const [selectedInputs, setSelectedInputs] = useState<Record<string, Record<string, string>>>({})
 
   const withAuthNeeded = useMemo(
-    () => instructionData?.filter((item) => item.dependencies.auth) ?? [],
-    [instructionData],
+    () => instructionsData?.filter((item) => item.dependencies.auth && !selectedAccounts[item.integration.key]) ?? [],
+    [instructionsData, selectedAccounts],
   )
-
-  console.log(`withAuthNeeded:`, withAuthNeeded)
+  const withInputsNeeded = useMemo(
+    () =>
+      instructionsData?.filter(
+        (item) => item.dependencies.inputs?.filter((input) => !selectedInputs[item.integration.key]?.[input])?.length,
+      ) ?? [],
+    [instructionsData, selectedInputs],
+  )
+  const dependenciesFullfilled = useMemo(
+    () => !withAuthNeeded.length && !withInputsNeeded.length,
+    [withAuthNeeded.length, withInputsNeeded.length],
+  )
 
   const handleSubmit = async () => {
     setPromptLoading(true)
@@ -121,137 +128,65 @@ export default function AiAssistant() {
       console.log('integrationActions:', integrationActions)
 
       // record unfufilled dependencies
-      let allDependenciesFullfilled = true
       for (const instructionItem of instructionsData) {
         if (instructionItem.operation.requiresCredentials) {
           instructionItem.dependencies.auth = true
-          allDependenciesFullfilled = false
         }
-        const inputDependencies = getInputDependencies(instructionItem.instruction.inputs)
+        const inputDependencies = getInputDependencies(instructionItem.operation, instructionItem.instruction.inputs)
         if (inputDependencies.length) {
           instructionItem.dependencies.inputs = inputDependencies
-          allDependenciesFullfilled = false
         }
       }
-      console.log('allDependenciesFullfilled:', allDependenciesFullfilled)
-
       setInstructionData(instructionsData)
-      setDependenciesFullfilled(allDependenciesFullfilled)
     } catch (e) {
       console.error('Error:', (e as Error).message)
       setError((e as Error).message)
     }
     setPromptLoading(false)
-    // await createWorkflow('')
   }
 
   const createWorkflow = async () => {
-    if (!unparsedInstructions) {
-      return
-    }
     setWorkflowLoading(true)
-    const instructions = unparsedInstructions.map((instruction) => resolveInstruction(instruction))
-    const integrationKeys = [...new Set(instructions.map((instruction) => instruction.integration))]
-    const integrations: Integration[] = []
-    const instructionsData: InstructionData[] = []
 
-    // get instruction data for the trigger
-    for (const integrationKey of integrationKeys) {
-      const integration = await fetchIntegration(integrationKey)
-      integrations.push(integration)
-    }
-    const integrationTriggerKey = instructions[0].operationKey
-    const triggerOperation = OPERATIONS.find(
-      (operation) => operation.integration === integrations[0].key && operation.operationKey === integrationTriggerKey,
+    // create workflow
+    const workflow = await createOneWorkflow('AI Workflow')
+    console.log(`Created workflow ${workflow.id}`)
+
+    // create trigger
+    const triggerInstructionData = instructionsData![0]
+    const triggerInputs = resolveInputs(
+      triggerInstructionData.operation,
+      triggerInstructionData.instruction.inputs,
+      selectedInputs[triggerInstructionData.integration.key] ?? {},
     )
-    if (!triggerOperation) {
-      setError(`Operation not found for ${integrations[0].key} ${integrationTriggerKey}`)
-      return
-    }
-    const integrationTrigger = await fetchIntegrationTrigger(
-      integrations[0].id,
-      triggerOperation!.mapOperationKey ?? triggerOperation.operationKey,
+    console.log(`Creating trigger with inputs:`, triggerInputs)
+    const res = await createOneWorkflowTrigger(
+      workflow.id,
+      triggerInstructionData.integrationOperation.id,
+      triggerInputs,
     )
-    instructionsData.push({
-      instruction: instructions[0],
-      operation: triggerOperation,
-      integration: integrations[0],
-      integrationOperation: integrationTrigger,
-      dependencies: {},
-    })
+    console.log(`Created workflow trigger ${res.id}`)
 
-    // get instruction data for the actions
-    const integrationActions = []
-    const actionOperations = []
-    for (const instruction of instructions.slice(1)) {
-      const integration = integrations.find((integration) => integration.key === instruction.integration)
-      if (!integration) {
-        setError(`Integration not found for ${instruction.integration}`)
-        return
-      }
-      const integrationActionKey = instruction.operationKey
-      const actionOperation = OPERATIONS.find(
-        (operation) => operation.integration === integration!.key && operation.operationKey === integrationActionKey,
+    // create actions
+    let previousActionId: null | string = null
+    for (const instructionItem of instructionsData!.slice(1)) {
+      const actionInputs = resolveInputs(
+        instructionItem.operation,
+        instructionItem.instruction.inputs,
+        selectedInputs[instructionItem.integration.key] ?? {},
       )
-      if (!actionOperation) {
-        setError(`Operation not found for ${instruction.integration} ${instruction.operationKey}`)
-        return
-      }
-      actionOperations.push(actionOperation)
-      const integrationAction = await fetchIntegrationAction(
-        integration!.id,
-        actionOperation!.mapOperationKey ?? actionOperation.operationKey,
+      console.log(`Creating action with inputs:`, actionInputs)
+      const res = await createOneWorkflowAction(
+        workflow.id,
+        instructionItem.integrationOperation.id,
+        actionInputs,
+        previousActionId,
       )
-      integrationActions.push(integrationAction)
-      instructionsData.push({
-        instruction,
-        operation: actionOperation,
-        integration,
-        integrationOperation: integrationAction,
-        dependencies: {},
-      })
+      console.log(`Created workflow action ${res.id}`)
+      previousActionId = res.id
     }
-    console.log('integrationActions:', integrationActions)
 
-    // record unfufilled dependencies
-    let allDependenciesFullfilled = true
-    for (const instructionItem of instructionsData) {
-      if (instructionItem.operation.requiresCredentials) {
-        instructionItem.dependencies.auth = true
-        allDependenciesFullfilled = false
-      }
-      const inputDependencies = getInputDependencies(instructionItem.instruction.inputs)
-      if (inputDependencies.length) {
-        instructionItem.dependencies.inputs = inputDependencies
-        allDependenciesFullfilled = false
-      }
-    }
-    console.log('allDependenciesFullfilled:', allDependenciesFullfilled)
-
-    setInstructionData(instructionsData)
-    setDependenciesFullfilled(allDependenciesFullfilled)
-
-    // TODO
-    // console.log(`Creating workflow...`)
-    // const workflow = await createOneWorkflow('AI Workflow')
-    // console.log(`Created workflow ${workflow.id}`)
-    // const triggerInputs = resolveInputs(triggerOperation!, instructions[0].inputs)
-    // console.log(`Creating workflow trigger for integration ${integrationTrigger.id} with inputs:`, triggerInputs)
-    // const res = await createOneWorkflowTrigger(workflow.id, integrationTrigger.id, triggerInputs)
-    // console.log(`Created workflow trigger ${res.id}`)
-    // let previousActionId: null | string = null
-    // for (let i = 0; i < integrationActions.length; i++) {
-    //   const actionInputs = resolveInputs(actionOperations[i]!, instructions[i + 1].inputs)
-    //   console.log(
-    //     `Creating workflow action for integration ${integrationActions[i].id} with inputs:`,
-    //     actionInputs,
-    //     previousActionId,
-    //   )
-    //   const res = await createOneWorkflowAction(workflow.id, integrationActions[i].id, actionInputs, previousActionId)
-    //   console.log(`Created workflow action ${res.id}`)
-    //   previousActionId = res.id
-    // }
-    // setWorkflowLoading(false)
+    setWorkflowLoading(false)
   }
 
   return (
@@ -279,7 +214,7 @@ export default function AiAssistant() {
               ))}
             </code>
           </div>
-          {withAuthNeeded?.length && (
+          {!!withAuthNeeded?.length && (
             <div className="mt-4">
               <code>
                 {withAuthNeeded.map((instruction, index) => (
@@ -295,8 +230,37 @@ export default function AiAssistant() {
                 <AuthenticationModal
                   integrations={withAuthNeeded.map((item) => item.integration)}
                   open
-                  onComplete={() => {}}
+                  onComplete={(selectedAccounts) => {
+                    setSelectedAccounts(selectedAccounts)
+                    setAuthModalOpen(false)
+                  }}
                   onCancel={() => setAuthModalOpen(false)}
+                />
+              )}
+            </div>
+          )}
+          {!!withInputsNeeded?.length && (
+            <div className="mt-4">
+              <code>
+                {withInputsNeeded.map((instruction, index) => (
+                  <div key={index}>
+                    <strong>{instruction.integration.name}</strong> needs {instruction.dependencies.inputs!.length}{' '}
+                    extra inputs: {instruction.dependencies.inputs!.join(', ')}.
+                  </div>
+                ))}
+              </code>
+              <Button className="mt-4" onClick={() => setInputsModalOpen(true)}>
+                {workflowLoading ? 'Loading...' : 'Add Inputs'}
+              </Button>
+              {inputsModalOpen && (
+                <InputsModal
+                  instructionsData={withInputsNeeded}
+                  open
+                  onComplete={(selectedInputs) => {
+                    setSelectedInputs(selectedInputs)
+                    setInputsModalOpen(false)
+                  }}
+                  onCancel={() => setInputsModalOpen(false)}
                 />
               )}
             </div>
@@ -308,6 +272,7 @@ export default function AiAssistant() {
           )}
         </div>
       )}
+      {error && <div className="mt-4 text-red-500">{error}</div>}
     </div>
   )
 }
