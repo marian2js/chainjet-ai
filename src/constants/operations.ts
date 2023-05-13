@@ -89,6 +89,42 @@ export const OPERATIONS: Operation[] = [
       { name: 'link', type: 'string' },
     ],
   },
+  {
+    type: 'trigger',
+    integration: 'schedule',
+    operationKey: 'schedule',
+    inputs: [{ name: 'cron', type: 'string' }],
+    outputs: [],
+  },
+  {
+    type: 'trigger',
+    integration: 'prices',
+    operationKey: 'tokenPriceThreshold',
+    inputs: [
+      { name: 'network', type: 'number' },
+      { name: 'address', type: 'string' },
+      { name: 'threshold', type: 'number' },
+      { name: 'direction', type: 'above|below' },
+    ],
+    outputs: [
+      { name: 'price', type: 'number' },
+      { name: 'priceChange24h', type: 'number' },
+    ],
+  },
+  {
+    type: 'trigger',
+    integration: 'poap',
+    operationKey: 'newPoapCollected',
+    inputs: [{ name: 'address', type: 'string' }],
+    outputs: [{ name: 'id', type: 'number' }],
+  },
+  {
+    type: 'trigger',
+    integration: 'ens',
+    operationKey: 'domainExpires',
+    inputs: [{ name: 'name', type: 'string' }],
+    outputs: [{ name: 'expiryDate', type: 'string' }],
+  },
 
   // ACTIONS //
   {
@@ -182,6 +218,17 @@ export const OPERATIONS: Operation[] = [
     inputs: [
       { name: 'channelId', type: 'string' },
       { name: 'content', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'action',
+    integration: 'email',
+    operationKey: 'sendEmailToYourself',
+    inputs: [
+      { name: 'email', type: 'string' },
+      { name: 'subject', type: 'string' },
+      { name: 'body', type: 'string' },
     ],
     outputs: [],
   },
