@@ -76,7 +76,7 @@ export async function createOneWorkflow(name: string): Promise<{ id: string; nam
 export async function createOneWorkflowTrigger(
   workflow: string,
   integrationTrigger: string,
-  inputs: Record<string, any>,
+  inputs: any,
 ): Promise<{ id: string }> {
   const query = `mutation ($workflow: ID!, $integrationTrigger: ID!, $inputs: JSONObject!) {
     createOneWorkflowTrigger(input: {
@@ -97,19 +97,21 @@ export async function createOneWorkflowAction(
   workflow: string,
   integrationAction: string,
   inputs: Record<string, any>,
+  previousAction: string | null = null,
 ): Promise<{ id: string }> {
-  const query = `mutation ($workflow: ID!, $integrationAction: ID!, $inputs: JSONObject!) {
+  const query = `mutation ($workflow: ID!, $integrationAction: ID!, $inputs: JSONObject!, $previousAction: ID) {
     createOneWorkflowAction(input: {
       workflowAction: {
         workflow: $workflow,
         integrationAction: $integrationAction,
-        inputs: $inputs
+        inputs: $inputs,
+        previousAction: $previousAction
       }
     }) {
       id
     }
   }`
-  const data = await sendQuery(query, { workflow, integrationAction, inputs })
+  const data = await sendQuery(query, { workflow, integrationAction, inputs, previousAction })
   return data?.createOneWorkflowAction
 }
 

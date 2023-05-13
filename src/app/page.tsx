@@ -31,7 +31,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full text-center">
+      <div className="w-full">
         {loading ? (
           <Loading />
         ) : isConnected ? (
