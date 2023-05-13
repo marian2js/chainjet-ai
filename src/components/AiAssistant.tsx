@@ -15,6 +15,9 @@ import { Integration } from '@/types/integration'
 import AuthenticationModal from './auth/AuthenticationModal'
 import InputsModal from './InputsModal'
 import { InstructionData } from '@/types/instruction-data'
+import axios from 'axios'
+import _ from 'lodash'
+import { Workflow } from '@/types/workflow'
 
 export default function AiAssistant() {
   const { address } = useAccount()
@@ -28,9 +31,14 @@ export default function AiAssistant() {
   const [inputsModalOpen, setInputsModalOpen] = useState(false)
   const [selectedAccounts, setSelectedAccounts] = useState<Record<string, string>>({})
   const [selectedInputs, setSelectedInputs] = useState<Record<string, Record<string, string>>>({})
+  const [createdWorkflow, setCreatedWorkflow] = useState<Workflow | null>(null)
 
   const withAuthNeeded = useMemo(
-    () => instructionsData?.filter((item) => item.dependencies.auth && !selectedAccounts[item.integration.key]) ?? [],
+    () =>
+      _.uniqBy(
+        instructionsData?.filter((item) => item.dependencies.auth && !selectedAccounts[item.integration.key]) ?? [],
+        (item) => item.integration.key,
+      ),
     [instructionsData, selectedAccounts],
   )
   const withInputsNeeded = useMemo(
@@ -45,22 +53,23 @@ export default function AiAssistant() {
     [withAuthNeeded.length, withInputsNeeded.length],
   )
 
-  const handleSubmit = async () => {
+  const handleDoMagic = async () => {
     setPromptLoading(true)
+    setCreatedWorkflow(null)
     try {
-      // const res = await axios.post('/api/chat', { text: value, address })
-      // const unparsedInstructions: string[] = res.data?.data
-      //   ?.split('\n')
-      //   .map((ins: string) => ins.trim())
-      //   .filter((ins: string) => !!ins)
+      const res = await axios.post('/api/chat', { text: value, address })
+      const unparsedInstructions: string[] = res.data?.data
+        ?.split('\n')
+        .map((ins: string) => ins.trim())
+        .filter((ins: string) => !!ins)
 
       // instructions returned by GPT-4
-      const unparsedInstructions = [
-        'mirror.newPost({{input.address}})',
-        'openai.sendPrompt("summarize {{0.title}}: {{0.url}} {{0.body}}")',
-        'lens.createPost({{1.response}})',
-        'twitter.sendTweet({{1.response}})',
-      ]
+      // const unparsedInstructions = [
+      //   'mirror.newPost({{input.address}})',
+      //   'openai.sendPrompt("summarize {{0.title}}: {{0.url}} {{0.body}}")',
+      //   'lens.createPost({{1.response}})',
+      //   'twitter.sendTweet({{1.response}})',
+      // ]
       setUnparsedInstructions(unparsedInstructions)
 
       const instructions = unparsedInstructions.map((instruction) => resolveInstruction(instruction))
@@ -147,6 +156,7 @@ export default function AiAssistant() {
 
   const createWorkflow = async () => {
     setWorkflowLoading(true)
+    setCreatedWorkflow(null)
 
     // create workflow
     const workflow = await createOneWorkflow('AI Workflow')
@@ -164,6 +174,7 @@ export default function AiAssistant() {
       workflow.id,
       triggerInstructionData.integrationOperation.id,
       triggerInputs,
+      selectedAccounts[triggerInstructionData.integration.key] ?? null,
     )
     console.log(`Created workflow trigger ${res.id}`)
 
@@ -174,6 +185,7 @@ export default function AiAssistant() {
         instructionItem.operation,
         instructionItem.instruction.inputs,
         selectedInputs[instructionItem.integration.key] ?? {},
+        previousActionId ?? 'trigger',
       )
       console.log(`Creating action with inputs:`, actionInputs)
       const res = await createOneWorkflowAction(
@@ -181,11 +193,13 @@ export default function AiAssistant() {
         instructionItem.integrationOperation.id,
         actionInputs,
         previousActionId,
+        selectedAccounts[instructionItem.integration.key] ?? null,
       )
       console.log(`Created workflow action ${res.id}`)
       previousActionId = res.id
     }
 
+    setCreatedWorkflow(workflow)
     setWorkflowLoading(false)
   }
 
@@ -203,7 +217,7 @@ export default function AiAssistant() {
         />
       </div>
       <div className="">
-        <Button onClick={handleSubmit}>{promptLoading ? 'Loading...' : 'Do Magic 🤖'}</Button>
+        <Button onClick={handleDoMagic}>{promptLoading ? 'Loading...' : 'Do Magic 🤖'}</Button>
       </div>
       {unparsedInstructions?.length && !promptLoading && (
         <div className="mt-8">
@@ -269,6 +283,16 @@ export default function AiAssistant() {
             <Button className="mt-4" onClick={createWorkflow}>
               {workflowLoading ? 'Loading...' : 'Create Workflow'}
             </Button>
+          )}
+          {createdWorkflow && (
+            <div className="mt-8">
+              <code>
+                🎉 Workflow created successfully:{' '}
+                <a href={`https://chainjet.io/workflows/${createdWorkflow.id}`} target="_blank" rel="noreferrer">
+                  https://chainjet.io/workflows/{createdWorkflow.id}
+                </a>
+              </code>
+            </div>
           )}
         </div>
       )}

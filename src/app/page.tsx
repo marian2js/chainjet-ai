@@ -10,7 +10,7 @@ import { useAccount } from 'wagmi'
 
 export default function Home() {
   const { isConnected } = useAccount()
-  const { id, isConnected: isConnectedWithChainJet, refetch } = useUser()
+  const { id, isConnected: isConnectedWithChainJet, loading: chainJetLoading, refetch } = useUser()
   const [loading, setLoading] = useState(false)
 
   const handleChainJetSignIn = async () => {
@@ -31,14 +31,16 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full">
-        {loading ? (
+      <div className="w-full m-auto">
+        {loading || chainJetLoading ? (
           <Loading />
         ) : isConnected ? (
           isConnectedWithChainJet ? (
             <AiAssistant />
           ) : (
-            <SignInWithChainJet onSignIn={handleChainJetSignIn} />
+            <div className="m-auto text-center">
+              <SignInWithChainJet onSignIn={handleChainJetSignIn} />
+            </div>
           )
         ) : (
           <div>

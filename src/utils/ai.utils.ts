@@ -25,11 +25,22 @@ export function getInputDependencies(operation: Operation, inputs: string[]) {
   return operation.inputs.filter((input, index) => interpolatedInputs[index]).map((input) => input.name)
 }
 
-export function resolveInputs(operation: Operation, inputs: string[], replacedInputs: Record<string, string>) {
+export function resolveInputs(
+  operation: Operation,
+  inputs: string[],
+  replacedInputs: Record<string, string>,
+  previousOperationId: string | null = null,
+) {
   return operation.inputs.reduce((acc, input, index) => {
     return {
       ...acc,
-      [input.name]: replacedInputs[input.name] ?? inputs[index]?.replace(/^"|"$/g, '') ?? input.value,
+      [input.name]:
+        replacedInputs[input.name] ??
+        inputs[index]
+          ?.trim()
+          .replace(/^"|"$/g, '')
+          .replace(/\{\{\s*\d+\.\s*(\w+)\s*\}\}/g, `{{${previousOperationId ?? ''}.$1}}`) ??
+        input.value,
     }
   }, {})
 }

@@ -2,6 +2,7 @@ import { Integration } from '@/types/integration'
 import { Button, Modal, Text } from '@nextui-org/react'
 import { useAccountCredentials, useIntegrationAccounts } from '../hooks/chainjet.hooks'
 import { useEffect, useMemo, useState } from 'react'
+import useInterval from '../hooks/use-interval.hooks'
 
 interface Props {
   open: boolean
@@ -14,7 +15,11 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
   const { integrationAccounts, loading: integrationAccountsLoading } = useIntegrationAccounts(
     useMemo(() => ({ integrationKeys: integrations.map((integration) => integration.key) }), [integrations]),
   )
-  const { accountCredentials, loading: accountCredentialsLoading } = useAccountCredentials({
+  const {
+    accountCredentials,
+    loading: accountCredentialsLoading,
+    refetch,
+  } = useAccountCredentials({
     integrationAccounts: integrationAccounts!,
     skip: !integrationAccounts?.length,
   })
@@ -31,6 +36,11 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
     }
   }, [accountCredentials, integrations])
 
+  // refetch account credentials every second
+  useInterval(() => {
+    refetch()
+  }, 1000)
+
   const loading = integrationAccountsLoading || accountCredentialsLoading
 
   return (
@@ -46,7 +56,7 @@ export default function AuthenticationModal({ open, integrations, onComplete, on
               {integrations.map((integration) => (
                 <div key={integration.id} className="flex items-center justify-between">
                   <div className="mt-8">
-                    {accountCredentials[integration.key]?.length && (
+                    {!!accountCredentials[integration.key]?.length && (
                       <div className="">
                         <select
                           className="w-full h-8"

@@ -2,6 +2,7 @@ import { AccountCredential } from '@/types/account-credential'
 import { Integration } from '@/types/integration'
 import { IntegrationAccount } from '@/types/integration-account'
 import { IntegrationAction, IntegrationTrigger } from '@/types/integration-operation'
+import { Workflow } from '@/types/workflow'
 
 export async function fetchViewer() {
   const query = `{
@@ -92,7 +93,7 @@ export async function fetchAccountCredentials(integrationAccountId: string): Pro
   return data?.accountCredentials?.edges?.map((edge: any) => edge.node)
 }
 
-export async function createOneWorkflow(name: string): Promise<{ id: string; name: string }> {
+export async function createOneWorkflow(name: string): Promise<Workflow> {
   const query = `mutation ($name: String!) {
     createOneWorkflow(input: { workflow: { name: $name } }) {
       id
@@ -107,19 +108,21 @@ export async function createOneWorkflowTrigger(
   workflow: string,
   integrationTrigger: string,
   inputs: any,
+  credentials: string | null = null,
 ): Promise<{ id: string }> {
-  const query = `mutation ($workflow: ID!, $integrationTrigger: ID!, $inputs: JSONObject!) {
+  const query = `mutation ($workflow: ID!, $integrationTrigger: ID!, $inputs: JSONObject!, $credentials: ID) {
     createOneWorkflowTrigger(input: {
       workflowTrigger: {
         workflow: $workflow,
         integrationTrigger: $integrationTrigger,
-        inputs: $inputs
+        inputs: $inputs,
+        credentials: $credentials
       }
     }) {
       id
     }
   }`
-  const data = await sendQuery(query, { workflow, integrationTrigger, inputs })
+  const data = await sendQuery(query, { workflow, integrationTrigger, inputs, credentials })
   return data?.createOneWorkflowTrigger
 }
 
@@ -128,25 +131,27 @@ export async function createOneWorkflowAction(
   integrationAction: string,
   inputs: Record<string, any>,
   previousAction: string | null = null,
+  credentials: string | null = null,
 ): Promise<{ id: string }> {
-  const query = `mutation ($workflow: ID!, $integrationAction: ID!, $inputs: JSONObject!, $previousAction: ID) {
+  const query = `mutation ($workflow: ID!, $integrationAction: ID!, $inputs: JSONObject!, $previousAction: ID, $credentials: ID) {
     createOneWorkflowAction(input: {
       workflowAction: {
         workflow: $workflow,
         integrationAction: $integrationAction,
         inputs: $inputs,
-        previousAction: $previousAction
+        previousAction: $previousAction,
+        credentials: $credentials
       }
     }) {
       id
     }
   }`
-  const data = await sendQuery(query, { workflow, integrationAction, inputs, previousAction })
+  const data = await sendQuery(query, { workflow, integrationAction, inputs, previousAction, credentials })
   return data?.createOneWorkflowAction
 }
 
 async function sendQuery(query: string, variables: Record<string, any> = {}) {
-  const res = await fetch('https://api.chainjet.io/graphql', {
+  const res = await fetch(process.env.NEXT_PUBLIC_CHAINJET_API_ENDPOINT!, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 import { AccountCredential } from '@/types/account-credential'
 import { IntegrationAccount } from '@/types/integration-account'
-import { useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { ChainJetContext } from '../providers/ChainJetProvider'
 import { fetchAccountCredentials, fetchIntegrationAccount } from '../services/chainjet.service'
 
@@ -37,17 +37,18 @@ export function useAccountCredentials({
   const [accountCredentials, setAccountCredentials] = useState<Record<string, AccountCredential[]> | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const run = async () => {
-      let credentials: Record<string, AccountCredential[]> = {}
-      for (const integrationAccount of integrationAccounts) {
-        credentials[integrationAccount.key] = await fetchAccountCredentials(integrationAccount.id)
-      }
-      setAccountCredentials(credentials)
-      setLoading(false)
+  const refetch = useCallback(async () => {
+    let credentials: Record<string, AccountCredential[]> = {}
+    for (const integrationAccount of integrationAccounts) {
+      credentials[integrationAccount.key] = await fetchAccountCredentials(integrationAccount.id)
     }
-    run()
-  }, [integrationAccounts, skip])
+    setAccountCredentials(credentials)
+  }, [integrationAccounts])
 
-  return { accountCredentials, loading }
+  useEffect(() => {
+    refetch()
+    setLoading(false)
+  }, [integrationAccounts, refetch, skip])
+
+  return { accountCredentials, loading, refetch }
 }
