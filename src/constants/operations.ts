@@ -16,6 +16,7 @@ export const OPERATIONS: Operation[] = [
     type: 'trigger',
     integration: 'blockchain',
     operationKey: 'newTransaction',
+    defaultSchedule: true,
     inputs: [
       { name: 'network', type: 'number' },
       { name: 'address', type: 'string' },
