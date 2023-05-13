@@ -16,15 +16,18 @@ export function resolveInstruction(instruction: string) {
   return { integration, operationKey, inputs }
 }
 
+/**
+ * Finds all inputs with input interpolation (e.g. {{ input.address }})
+ */
 export function getInputDependencies(inputs: string[]) {
-  // TODO
+  return inputs.filter((input) => /\{\{\s*input\.\w+\s*\}\}/.test(input))
 }
 
 export function resolveInputs(operation: Operation, inputs: string[]) {
   return operation.inputs.reduce((acc, input, index) => {
     return {
       ...acc,
-      [input.name]: inputs[index] ?? input.value,
+      [input.name]: inputs[index]?.replace(/^"|"$/g, '') ?? input.value,
     }
   }, {})
 }

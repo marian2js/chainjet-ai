@@ -9,10 +9,12 @@ import {
   fetchIntegrationAction,
   fetchIntegrationTrigger,
 } from './services/chainjet.service'
-import { resolveInputs, resolveInstruction } from '@/utils/ai.utils'
+import { getInputDependencies, resolveInputs, resolveInstruction } from '@/utils/ai.utils'
 import { OPERATIONS } from '@/constants/operations'
+import { useAccount } from 'wagmi'
 
 export default function AiAssistant() {
+  const { address } = useAccount()
   const [value, setValue] = useState('')
   const [promptLoading, setPromptLoading] = useState(false)
   const [workflowLoading, setWorkflowLoading] = useState(false)
@@ -22,20 +24,20 @@ export default function AiAssistant() {
   const handleSubmit = async () => {
     setPromptLoading(true)
     try {
-      // const res = await axios.post('/api/chat', { text: value })
-      // const instructions = res.data?.data
-      //   ?.split('\n')
-      //   .map((ins: string) => ins.trim())
-      //   .filter((ins: string) => !!ins)
+      const res = await axios.post('/api/chat', { text: value, address })
+      const instructions = res.data?.data
+        ?.split('\n')
+        .map((ins: string) => ins.trim())
+        .filter((ins: string) => !!ins)
 
       // instructions returned by GPT-4
-      const instructions = [
-        'mirror.newPost(lensprotocol.eth)', // TODO
-        // 'mirror.newPost({{input.address}})', // TODO
-        'openai.sendPrompt("summarize {{0.title}}: {{0.url}} {{0.body}}")',
-        'lens.createPost({{1.response}})',
-        'twitter.sendTweet({{1.response}})',
-      ]
+      // const instructions = [
+      //   'mirror.newPost(lensprotocol.eth)', // TODO
+      //   // 'mirror.newPost({{input.address}})', // TODO
+      //   'openai.sendPrompt("summarize {{0.title}}: {{0.url}} {{0.body}}")',
+      //   'lens.createPost({{1.response}})',
+      //   'twitter.sendTweet({{1.response}})',
+      // ]
       setInstructions(instructions)
     } catch (e) {
       console.error('Error:', (e as Error).message)
@@ -69,7 +71,7 @@ export default function AiAssistant() {
       triggerOperation!.mapOperationKey ?? triggerOperation!.operationKey,
     )
     const integrationActions = []
-    const integrationActionOperations = []
+    const actionOperations = []
     for (const instruction of resolvedInstructions.slice(1)) {
       const integration = integrations.find((integration) => integration.key === instruction.integration)
       const integrationActionKey = instruction.operationKey
@@ -79,7 +81,7 @@ export default function AiAssistant() {
       if (!actionOperation) {
         console.log(`Operation not found for ${instruction.integration} ${instruction.operationKey}`)
       }
-      integrationActionOperations.push(actionOperation)
+      actionOperations.push(actionOperation)
       const integrationAction = await fetchIntegrationAction(
         integration!.id,
         actionOperation!.mapOperationKey ?? actionOperation!.operationKey,
@@ -87,6 +89,23 @@ export default function AiAssistant() {
       integrationActions.push(integrationAction)
     }
     console.log('integrationActions:', integrationActions)
+
+    // const allOperations = [triggerOperation, ...actionOperations]
+    // if (allOperations.some((operation) => operation?.requiresCredentials)) {
+    //   console.log('Requires credentials')
+    //   return
+    // }
+
+    // for (const operation of allOperations) {
+    // const inputDependencies = getInputDependencies(operation!.inputs)
+    // }
+    for (const instruction of resolvedInstructions) {
+      const inputDependencies = getInputDependencies(instruction.inputs)
+      if (inputDependencies.length) {
+        console.log('inputDependencies:', inputDependencies)
+        return
+      }
+    }
 
     console.log(`Creating workflow...`)
     const workflow = await createOneWorkflow('AI Workflow')
@@ -97,7 +116,7 @@ export default function AiAssistant() {
     console.log(`Created workflow trigger ${res.id}`)
     let previousActionId: null | string = null
     for (let i = 0; i < integrationActions.length; i++) {
-      const actionInputs = resolveInputs(integrationActionOperations[i]!, resolvedInstructions[i + 1].inputs)
+      const actionInputs = resolveInputs(actionOperations[i]!, resolvedInstructions[i + 1].inputs)
       console.log(
         `Creating workflow action for integration ${integrationActions[i].id} with inputs:`,
         actionInputs,
@@ -126,7 +145,7 @@ export default function AiAssistant() {
       <div className="">
         <Button onClick={handleSubmit}>{promptLoading ? <Loading /> : 'Do Magic 🤖'}</Button>
       </div>
-      {instructions?.length && (
+      {instructions?.length && !promptLoading && (
         <div className="mt-8">
           <code>
             {instructions.map((instruction, index) => (
@@ -138,6 +157,7 @@ export default function AiAssistant() {
           </Button>
         </div>
       )}
+      {(promptLoading || workflowLoading) && <div className="mt-4">Loading...</div>}
     </div>
   )
 }

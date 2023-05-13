@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   if (!text) {
     return NextResponse.json({ data: 'No text provided!', statusCode: 400 })
   }
+  const address = body.address
 
   const triggers = OPERATIONS.filter((operation) => operation.type === 'trigger')
   let triggerPrompt = ''
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
     // `You need to know the outputs to know what keys to send. ` +
     // `Please ask any output keys you need in the format: Outputs: ModuleA, ModuleB, ModuleC` +
     `Operations are defined in the format: Protocol.method(inputs): outputs\n` +
+    `User address is: ${address}\n` +
     `Trigger Modules:\n` +
     `${triggerPrompt}` +
     `Action Modules:\n` +
