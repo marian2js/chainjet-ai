@@ -1,4 +1,5 @@
 import { Operation } from '@/constants/operations'
+import { Instruction } from '@/types/instruction'
 
 export function getOperationPrompt(operation: Operation): string {
   const inputs = operation.inputs
@@ -9,7 +10,7 @@ export function getOperationPrompt(operation: Operation): string {
   return `${operation.integration}.${operation.operationKey}(${inputs})${outputs.length ? `: ${outputs}` : ''}`
 }
 
-export function resolveInstruction(instruction: string) {
+export function resolveInstruction(instruction: string): Instruction {
   const integration = instruction.split('.')[0]
   const operationKey = instruction.split('.')[1].split('(')[0]
   const inputs = instruction.split('(')[1].split(')')[0].split(',')

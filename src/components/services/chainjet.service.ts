@@ -1,3 +1,8 @@
+import { AccountCredential } from '@/types/account-credential'
+import { Integration } from '@/types/integration'
+import { IntegrationAccount } from '@/types/integration-account'
+import { IntegrationAction, IntegrationTrigger } from '@/types/integration-operation'
+
 export async function fetchViewer() {
   const query = `{
     viewer {
@@ -8,7 +13,7 @@ export async function fetchViewer() {
   return data?.viewer
 }
 
-export async function fetchIntegration(key: string): Promise<{ id: string; name: string; key: string }> {
+export async function fetchIntegration(key: string): Promise<Integration> {
   const query = `{
     integrations (filter: { key: { eq: "${key}" } }) {
       edges {
@@ -16,6 +21,7 @@ export async function fetchIntegration(key: string): Promise<{ id: string; name:
           id
           key
           name
+          logo
         }
       }
     }
@@ -24,10 +30,7 @@ export async function fetchIntegration(key: string): Promise<{ id: string; name:
   return data?.integrations?.edges?.[0]?.node
 }
 
-export async function fetchIntegrationTrigger(
-  integrationId: string,
-  key: string,
-): Promise<{ id: string; name: string; key: string }> {
+export async function fetchIntegrationTrigger(integrationId: string, key: string): Promise<IntegrationTrigger> {
   const query = `{
     integrationTriggers (filter: { integration: { eq: "${integrationId}" }, key: { eq: "${key}" } }) {
       edges {
@@ -43,10 +46,7 @@ export async function fetchIntegrationTrigger(
   return data?.integrationTriggers?.edges?.[0]?.node
 }
 
-export async function fetchIntegrationAction(
-  integrationId: string,
-  key: string,
-): Promise<{ id: string; name: string; key: string }> {
+export async function fetchIntegrationAction(integrationId: string, key: string): Promise<IntegrationAction> {
   const query = `{
     integrationActions (filter: { integration: { eq: "${integrationId}" }, key: { eq: "${key}" } }) {
       edges {
@@ -60,6 +60,36 @@ export async function fetchIntegrationAction(
   }`
   const data = await sendQuery(query)
   return data?.integrationActions?.edges?.[0]?.node
+}
+
+export async function fetchIntegrationAccount(integrationKey: string): Promise<IntegrationAccount> {
+  const query = `{
+    integrationAccounts (filter: { key: { eq: "${integrationKey}" } }) {
+      edges {
+        node {
+          id
+          key
+        }
+      }
+    }
+  }`
+  const data = await sendQuery(query)
+  return data?.integrationAccounts?.edges?.[0]?.node
+}
+
+export async function fetchAccountCredentials(integrationAccountId: string): Promise<AccountCredential[]> {
+  const query = `{
+    accountCredentials (filter: { integrationAccount: { eq: "${integrationAccountId}" } }) {
+      edges {
+        node {
+          id
+          name
+        }
+      }
+    }
+  }`
+  const data = await sendQuery(query)
+  return data?.accountCredentials?.edges?.map((edge: any) => edge.node)
 }
 
 export async function createOneWorkflow(name: string): Promise<{ id: string; name: string }> {
