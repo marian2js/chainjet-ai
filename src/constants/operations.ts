@@ -2,6 +2,7 @@ export interface Operation {
   type: 'trigger' | 'action'
   integration: string
   operationKey: string
+  defaultSchedule?: boolean
   mapOperationKey?: string
   requiresCredentials?: boolean
   inputs: { name: string; type: string; value?: any }[]
@@ -24,6 +25,7 @@ export const OPERATIONS: Operation[] = [
     type: 'trigger',
     integration: 'lens',
     operationKey: 'newPost',
+    defaultSchedule: true,
     inputs: [{ name: 'profileId', type: 'string' }],
     outputs: [{ name: 'id', type: 'string' }],
   },
@@ -31,6 +33,7 @@ export const OPERATIONS: Operation[] = [
     type: 'trigger',
     integration: 'lens',
     operationKey: 'newFollower',
+    defaultSchedule: true,
     inputs: [{ name: 'profileId', type: 'string' }],
     outputs: [{ name: 'handle', type: 'string' }],
   },
@@ -38,6 +41,7 @@ export const OPERATIONS: Operation[] = [
     type: 'trigger',
     integration: 'mirror',
     operationKey: 'newPost',
+    defaultSchedule: true,
     inputs: [{ name: 'address', type: 'string' }],
     outputs: [
       { name: 'title', type: 'string' },
@@ -50,6 +54,7 @@ export const OPERATIONS: Operation[] = [
     integration: 'xmtp',
     operationKey: 'newMessage',
     requiresCredentials: true,
+    defaultSchedule: true,
     inputs: [
       // { name: 'conversationPrefix', type: 'string' }
     ],

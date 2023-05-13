@@ -108,21 +108,23 @@ export async function createOneWorkflowTrigger(
   workflow: string,
   integrationTrigger: string,
   inputs: any,
-  credentials: string | null = null,
+  credentials: string | null,
+  schedule: any | null,
 ): Promise<{ id: string }> {
-  const query = `mutation ($workflow: ID!, $integrationTrigger: ID!, $inputs: JSONObject!, $credentials: ID) {
+  const query = `mutation ($workflow: ID!, $integrationTrigger: ID!, $inputs: JSONObject!, $credentials: ID, $schedule: JSONObject) {
     createOneWorkflowTrigger(input: {
       workflowTrigger: {
         workflow: $workflow,
         integrationTrigger: $integrationTrigger,
         inputs: $inputs,
-        credentials: $credentials
+        credentials: $credentials,
+        schedule: $schedule
       }
     }) {
       id
     }
   }`
-  const data = await sendQuery(query, { workflow, integrationTrigger, inputs, credentials })
+  const data = await sendQuery(query, { workflow, integrationTrigger, inputs, credentials, schedule })
   return data?.createOneWorkflowTrigger
 }
 

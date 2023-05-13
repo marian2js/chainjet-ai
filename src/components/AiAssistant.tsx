@@ -175,6 +175,7 @@ export default function AiAssistant() {
       triggerInstructionData.integrationOperation.id,
       triggerInputs,
       selectedAccounts[triggerInstructionData.integration.key] ?? null,
+      triggerInstructionData.operation.defaultSchedule ? { frequency: 'interval', interval: 900 } : null,
     )
     console.log(`Created workflow trigger ${res.id}`)
 
